@@ -73,6 +73,15 @@ class ParserModel(nn.Module):
         ### 
         ### See the PDF for hints.
 
+        # h = ReLU(xW + b1)
+        # l = hU + b2
+        # yhat = softmax(l)
+
+        self.embed_to_hidden_weight = nn.Parameter(nn.init.xavier_uniform_(torch.empty(n_features*self.embed_size, hidden_size))) # Matrix W
+        self.embed_to_hidden_bias = nn.Parameter(nn.init.uniform_(torch.empty(1, hidden_size))) # bias b_1
+        self.dropout = nn.Dropout(dropout_prob)
+        self.hidden_to_logits_weight = nn.Parameter(nn.init.xavier_uniform_(torch.empty(hidden_size, n_classes))) # Matrix U
+        self.hidden_to_logits_bias = nn.Parameter(nn.init.uniform_(torch.empty(1, n_classes))) # bias b_2
 
 
 
@@ -107,7 +116,13 @@ class ParserModel(nn.Module):
         ###     View: https://pytorch.org/docs/stable/tensors.html#torch.Tensor.view
         ###     Flatten: https://pytorch.org/docs/stable/generated/torch.flatten.html
 
-
+        # Flatten the word indices vector to 1D
+        w_flat = w.view(-1)
+        # Use index_select to select the embeddings for the words in w_flat
+        # The second argument 0 means selecting rows
+        embeddings_flat = torch.index_select(self.embeddings, 0, w.view(-1)) # Shape (batch_size * n_features, embed_size)
+        # Reshape the embeddings to (batch_size, n_features * embed_size)
+        x = embeddings_flat.view(w.shape[0], -1) # Shape (batch_size, n_features * embed_size)
 
         ### END YOUR CODE
         return x
@@ -144,6 +159,11 @@ class ParserModel(nn.Module):
         ###     Matrix product: https://pytorch.org/docs/stable/torch.html#torch.matmul
         ###     ReLU: https://pytorch.org/docs/stable/nn.html?highlight=relu#torch.nn.functional.relu
 
+        x = self.embedding_lookup(w)
+        h = x @ self.embed_to_hidden_weight + self.embed_to_hidden_bias
+        h = F.relu(h)
+        h = self.dropout(h)
+        logits = h @ self.hidden_to_logits_weight + self.hidden_to_logits_bias
 
         ### END YOUR CODE
         return logits
