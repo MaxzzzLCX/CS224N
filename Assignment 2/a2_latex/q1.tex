@@ -51,6 +51,12 @@ Prove that the naive-softmax loss (Equation \ref{naive-softmax}) is the same as 
 
 Your answer should be one line. You may describe your answer in words.
 
+\textcolor{blue}{
+    \textbf{Solution} Since $\by$ is the true distribution, where $y_w=P(O=o|C=c)$, it is a one-hot vector. More specifically, $y_w=1$ if $w=o$ and $ y_w=0$ otherwise (i.e., it will predict 100\% probability for the actual outside word and 0 for others). Thus, the corss-entropy loss can be simplified as 
+    \begin{equation}
+        -\by_0 \log(\hat{\by}_0)=-\log(\hat{\by}_0)=\bJ_{\text{naive-softmax}}
+    \end{equation}
+}
 
 % Question 1-B
 \part[6]
@@ -69,7 +75,29 @@ Your answer should be one line. You may describe your answer in words.
 
 \end{enumerate}
 
+\textcolor{blue}{
+    \textbf{Solution}
+    \begin{align}
+        \bJ &= -\log P(O=o|C=c)=-\log \left( \frac{\exp(\bu_o^{\top}\bv_c)}{\sum_w \exp(\bu_w^{\top}\bv_c)}\right) \nonumber \\
+        \frac{\partial \bJ}{\partial \bv_c} &= -\frac{\partial }{\partial \bv_c} (\bu_o^{\top}\bv_c) + \frac{\partial }{\partial \bv_c} \log \sum_w \exp(\bu_w^{\top}\bv_c) \nonumber \\
+        &= -\bu_o + \frac{1}{\sum_w \exp(\bu_w^{\top}\bv_c)} \sum_w \exp(\bu_w^{\top}\bv_c)\bu_w \nonumber \\
+        &= -\bu_o + \sum_w \left[\frac{\exp(\bu_o^{\top}\bv_c)}{\sum_x \exp(\bu_x^{\top}\bv_c)} \right]\bu_w \nonumber \\
+        &= -\bu_o+\sum_w \hat{\by}_w \bu_w = -\bU\by + \bU\hat{\by}=\bU(\hat{\by}-\by) \nonumber
+    \end{align}
+}
 
+\textcolor{blue}{
+    \textbf{Solution}
+    The gradient is zero when the difference between two vectors $\hat{\by}-\by$ is in the null space of the matrix $\bU$. However usually matrix $\bU$ is full rank, so usually only when $\by=\hat{\by}$.
+}
+
+\textcolor{blue}{
+    \textbf{Solution}
+    When we subtract the gradient from the word vector $\bv_c$, we are adding the term $\bU \by=\bu_o$. This pulls $\bv_c$ towards the outside word vector $\bu_o$, effectively making the dot product of these two vectors larger. The prediction probability is thus larger.  
+    The term $\bU \hat{\by}=\sum_w \hat{\by}_w \bu_w$ is subtracted from $\bv_c$, effectively pushing $\bv_c$ away from the prediction-weighted average of outside vectors. 
+    
+    Therefore, this is strengthening the association between the center word vector $\bv_c$ and the correct outside vector $\bu_o$ while weakening the association with all other outside word vectors.
+}
 
 % Question 1-C
 \part[1]
@@ -77,16 +105,43 @@ In many downstream applications using word embeddings, L2 normalized vectors (e.
 
 \textbf{Hint:} Consider the case where $\mathbf{u}_x = \alpha\mathbf{u}_y$ for some words $x \neq y$ and some scalar $\alpha$. When $\alpha$ is positive, what will be the value of normalized  $\mathbf{u}_x$ and normalized $\mathbf{u}_y$? How might $\mathbf{u}_x$ and $\mathbf{u}_y$ be related for such a normalization to affect or not affect the resulting classification?
 
+\textcolor{blue}{
+    \textbf{Solution}
+    In this case, if normalization is not applied, there might be individual words with larger magnitudes than other words. Using the example, if a phrase contains $\bu_x=\alpha\bu_y$ and $\alpha=-10$, the sum of word embedding will be a vector with large magnitude in the $\bu_x$ direction. However, after normalization, both vectors will have the same magnitude and exact opposite direction, effectively canceling each other out. 
+}
+
 
 % Question 1-D
 \part[5] 
 Compute the partial derivatives of $\bJ_{\text{naive-softmax}}(\bv_c, o, \bU)$ with respect to each of the `outside' word vectors, $\bu_w$'s. There will be two cases: when $w=o$, the true `outside' word vector, and $w \neq o$, for all other words. Please write your answer in terms of $\by$, $\hat{\by}$, and $\bv_c$. In this subpart, you may use specific elements within these terms as well (such as $\by_1$, $\by_2$, $\dots$). Note that $\bu_w$ is a vector while $\by_1, \by_2, \dots$ are scalars. Show your work to receive full credit.
 
-
+\textcolor{blue}{
+    \textbf{Solution}
+    When $w=o$, we have $\bu_w=\bu_o$, thus
+    \begin{align*}
+        \frac{\partial \bJ}{\partial\bu_w} &= -\bv_c + \frac{\partial}{\partial\bu_w} \log \sum \exp(\bu_w^{\top} \bv_c) \\
+        &= -\bv_c + \frac{1}{\sum_x \exp(\bu_x^{\top}\bv_c)} \exp(\bu_o^{\top}\bv_c) \bv_c = \bv_c(\hat{\by}_o-1)
+    \end{align*}
+    When $w\ne o$, we have $\bu_w \ne \bu_o$, thus
+    \begin{align*}
+        \frac{\partial \bJ}{\partial\bu_w} &= \frac{1}{\sum_x \exp(\bu_x^{\top}\bv_c)} \exp(\bu_w^{\top}\bv_c) \bv_c = \bv_c\hat{\by}_w
+    \end{align*}
+    Combining the two cases, we get
+    \begin{align*}
+         \frac{\partial \bJ}{\partial\bu_w} = \boxed{\bv_c (\hat{\by}_w-\by_w)}
+    \end{align*}
+}
 
 % Question 1-E
 \part[1]
 Write down the partial derivative of $\bJ_{\text{naive-softmax}}(\bv_c, o, \bU)$ with respect to $\bU$. Please break down your answer in terms of the column vectors $\frac{\partial \bJ(\bv_c, o, \bU)}{\partial \bu_1}$, $\frac{\partial \bJ(\bv_c, o, \bU)}{\partial \bu_2}$, $\cdots$, $\frac{\partial \bJ(\bv_c, o, \bU)}{\partial \bu_{|\text{Vocab}|}}$. No derivations are necessary, just an answer in the form of a matrix.
+
+\textcolor{blue}{
+    \textbf{Solution}
+    \begin{align*}
+        \frac{\partial \bJ}{\partial \bU}=\boxed{\bv_c (\hat{\by}-\by)^{\top}}
+    \end{align*}
+}
 
 
 \end{parts}

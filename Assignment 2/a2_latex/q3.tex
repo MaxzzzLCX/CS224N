@@ -29,17 +29,25 @@ On each step, your parser will decide among the three transitions using a neural
     \begin{adjustwidth}{-2cm}{}
     \begin{tabular}{ l | l | l | l}
     Stack & Buffer & New dependency & Transition \\ \hline
-    [ROOT] & [I, presented, my, findings, at, the, NLP, conference] &  & Initial Configuration \\
+    [ROOT] & [I, presented, my, findings, at, the, NLP, conference] &  & Initial Config. \\
     $[$ROOT, I] & [presented, my, findings, at, the, NLP, conference] &  &  \texttt{SHIFT}  \\
     $[$ROOT, I, presented] & [my, findings, at, the, NLP, conference] &  &  \texttt{SHIFT}  \\
-    $[$ROOT, presented] & [my, findings, at, the, NLP, conference] & presented$\to$I &  \texttt{LEFT-ARC}  \\
+    $[$ROOT, presented] & [my, findings, at, the, NLP, conference] & presented$\to$I &  \texttt{LEFT-ARC}  \\ \hline
+    \color{blue} $[$ROOT, presented, my] & \color{blue}[findings, at, the, NLP, conference] & \color{blue}presented$\to$I &  \color{blue}\texttt{SHIFT}  \\
+    \color{blue}$[$ROOT, presented, my, findings] & \color{blue}[at, the, NLP, conference] & \color{blue}presented$\to$I &  \color{blue}\texttt{SHIFT}  \\
+    \color{blue}$[$ROOT, presented, findings] & \color{blue}[at, the, NLP, conference] & \color{blue}findings$\to$my &  \color{blue}\texttt{LEFT-ARC}  \\
+    \color{blue}$[$ROOT, presented] & \color{blue}[at, the, NLP, conference] & \color{blue}presented$\to$findings &  \color{blue}\texttt{RIGHT-ARC}  \\
+    \color{blue}$\vdots$ & \color{blue}$\vdots$ & \color{blue}$\vdots$ & \color{blue}$\vdots$ \\
+    \color{blue}$[$ROOT] & \color{blue}[] & \color{blue}ROOT$\to$presented &  \color{blue}\texttt{RIGHT-ARC}  \\
     \end{tabular}\newline
     \end{adjustwidth}
     
     \part[2] A sentence containing $n$ words will be parsed in how many steps (in terms of $n$)? Briefly explain in 1--2 sentences why.
-
+    \textcolor{blue}{
+        \textbf{Solution}
+        Each word has to be "shifted" into the stack from the buffer once, and has to be removed from the buffer as a dependent of some other word once. Therefore, the total number of steps needed is $\boxed{2n}$.
+    }
        
-    
     \part[6] Implement the \texttt{\_\_init\_\_} and \texttt{parse\_step} functions in the \texttt{PartialParse} class in \texttt{parser\_transitions.py}. This implements the transition mechanics your parser will use. You can run basic (non-exhaustive) tests by running \texttt{python parser\_transitions.py part\_c}.
 
     \part[8] Our network will predict which transition should be applied next to a partial parse. We could use it to parse a single sentence by applying predicted transitions until the parse is complete. However, neural networks run much more efficiently when making predictions about \textit{batches} of data at a time (i.e., predicting the next transition for any different partial parses simultaneously). We can parse sentences in minibatches with the following algorithm. \newline
@@ -95,8 +103,39 @@ On each step, your parser will decide among the three transitions using a neural
     \begin{enumerate}[label=\roman*.]
     
         \item \textcolor{black}{Compute the derivative of $\bh = \relu(\bx \bW + \bb_1)$ with respect to $\bx$. For simplicity, you only need to show the derivative $\frac{\partial h_i}{\partial x_j}$ for some index $i$ and $j$. You may ignore the case where the derivative is not defined at 0.}
+
+        \textcolor{blue}{
+            \textbf{Solution}
+            For some specific $\bh_i$ and $\bx_j$, we have 
+            \begin{equation*}
+                \bh_i = \relu\left(\bx \bw_i + (\bb_1)_i\right),
+            \end{equation*}
+            where $\bw_i$ is the $i$th column of matrix $\bW$. Therefore, we have 
+            \begin{equation*}
+                \frac{\partial \bh_i}{\partial \bx_j} = 
+                \begin{cases}
+                    \bW_{ji} & \text{if } (\bx\bW + \bb_1)_i > 0, \\
+                    0      & \text{otherwise}.
+                \end{cases}
+            \end{equation*}
+        }
+
+
         \item \textcolor{black}{Recall in part 1b, we computed the partial derivative of $\bJ_{\text{naive-softmax}}(\bv_c, o, \bU)$. Likewise, please compute the partial derivative of $J(\theta)$ with respect to the $i$th entry of $\bl$, which is denoted as $\bl_i$. Specifically, compute $\frac{\partial CE(\by, \byt)}{\partial \bl_i}$, assuming that $\bl \in \R^3$, $\byt \in \R^3$, $\by \in \R^3$, and the true label is $c$. \\
         \textbf{Hints}: You may recall from part 1a, $\frac{\partial CE(\by, \byt)}{\partial \bl_i} = \sum_j \frac{\partial CE(\by, \byt)}{\partial \byt_j}\frac{\partial \byt_j}{\partial \bl_i}$, and $\frac{\partial CE(\by, \byt)}{\partial \byt_j}=0$ if $j \neq c$. 
+        }
+
+        \textcolor{blue}{
+            \textbf{Solution}
+            \begin{align*}
+                \frac{\partial J}{\partial \bl_i} &= - \frac{\partial}{\partial \bl_i} \sum \by_j \log(\hat{\by}_j) = -\frac{\partial}{\partial \bl_i} \log(\by_c)=-\frac{\partial}{\partial \bl_i} \log(\smx(\bl_c)) \\
+                &= -\frac{\partial}{\partial \bl_i} \log\left(\frac{\exp(\bl_c)}{\sum_j \exp(\bl_j)}\right) = -\frac{\partial}{\partial \bl_i} \bl_c + \frac{\exp(\bl_c)}{\sum_j \exp(\bl_j)} \\
+                &= 
+                \begin{cases}
+                    \hat{\by}_i     & \text{if } i \ne c \\
+                    \hat{\by}_i + 1 & \text{if } i = c
+                \end{cases}
+            \end{align*}
         }
         \item We will use UAS score as our evaluation metric. UAS refers to Unlabeled Attachment Score, which is computed as the ratio between number of correctly predicted dependencies and the number of total dependencies despite of the relations (our model doesn't predict this).\newline
     
@@ -207,5 +246,10 @@ In particular, you \textbf{do not} need to look at the labels on the the depende
 
 
 \part[2] Recall in part (e), the parser uses features which includes words and their part-of-speech (POS) tags. Explain the benefit of using part-of-speech tags as features in the parser?
+
+\textcolor{blue}{
+    \textbf{Solution}
+    Part-of-speech tags give the parser syntactic category information (e.g., noun, verb, proposition, etc.), which helps it predict likely dependency relations. Certain dependency patterns are strongly correlated with POS; for example, adjectives typically modify nouns. Therefore, by including the POS tags, the parser doesn't have to infer these categories from words alone and can directly utilize such information to make predictions. 
+}
 
 \end{parts}

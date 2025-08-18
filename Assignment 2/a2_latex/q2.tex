@@ -18,7 +18,12 @@
                 	\btheta_{t+1} &\gets \btheta_t - \alpha \bm_{t+1}
                 }
                 where $\beta_1$ is a hyperparameter between 0 and 1 (often set to  0.9). Briefly explain in 2--4 sentences (you don't need to prove mathematically, just give an intuition) how using $\bm$ stops the updates from varying as much and why this low variance may be helpful to learning, overall.\newline
-              
+
+            \textcolor{blue}{
+                \textbf{Solution}
+            The gradients can be noisy in high dimensions. Therefore, keeping a moving average of gradients is like having a "low-pass filter". Instead of reacting strongly to noisy minibatch gradients, the update direction is smoothed towards the average trend. This low variance helps learning because it allows more consistent movement in promising directions, avoiding oscillations and making convergence faster and more stable.
+            }
+            \newline
                 
             \subpart[2] Adam extends the idea of {\it momentum} with the trick of {\it adaptive learning rates} by keeping track of  $\bv$, a rolling average of the magnitudes of the gradients:
                 \alns{
@@ -28,6 +33,10 @@
                 }
                 where $\odot$ and $/$ denote elementwise multiplication and division (so $\bz \odot \bz$ is elementwise squaring) and $\beta_2$ is a hyperparameter between 0 and 1 (often set to  0.99). Since Adam divides the update by $\sqrt{\bv}$, which of the model parameters will get larger updates?  Why might this help with learning?
                 
+            \textcolor{blue}{
+                \textbf{Solution}
+                Diving by $\sqrt{\bv_{t+1}}$ means coordinates with smaller $\bv$ coordinates, thus smaller gradients, will get scaled up. This helps the parameters that are in the "flat" regions of parameter space to move around and explore. The parameters with larger gradients are scaled down to avoid overshooting. 
+            } \newline
            
                 
                 \end{subparts}
@@ -47,10 +56,29 @@
             \begin{subparts}
             \subpart[2]
                 What must $\gamma$ equal in terms of $p_{\text{drop}}$? Briefly justify your answer or show your math derivation using the equations given above.
-                
+
+            \textcolor{blue}{
+                \textbf{Solution}
+                In dropout, each unit is kept with probability of $1-p_{\text{drop}}$. Therefore, the expected value of the $i$th element of hidden layer activation $\bh$ is: 
+                \begin{equation*}
+                    \mathbb{E}_{p_{\text{drop}}}[\bh_\text{drop}]_i = (1-p_{\text{drop}})(\gamma h_i) + p_{\text{drop}}(0)
+                \end{equation*}
+                For this value to equal $h_i$, we have:
+                \begin{equation*}
+                    \gamma = \frac{1}{1-p_{\text{drop}}}
+                \end{equation*} 
+            } \newline
             
           \subpart[2] Why should dropout be applied during training? Why should dropout \textbf{NOT} be applied during evaluation? \textbf{Hint:} it may help to look at the dropout paper linked. \newline
-          
+
+           \textcolor{blue}{
+                \textbf{Solution}
+              During training, Dropout makes the network learn redundant, distributed representations because any neuron can be randomly "switched off" in a minibatch. This reduces reliance on individual neurons or co-adaptation between neurons, therefore helping to prevent overfitting. 
+              \begin{itemize}
+                  \item A way of looking at it is if a layer contains $n$ neurons, there are $2^n$ possible post-dropout versions of that layer. During training, dropout is sampling from these $2^n$ possible sub-networks. Therefore, dropout is effectively training an exponential number of networks and ensembling them together during test time.
+              \end{itemize}
+              At test time, we don't drop units because we want the full capacity of the network and the learned ensemble effect. The scaling factor $\gamma$ mentioned above ensures the expected activation matches training, so no extra randomness is introduced. 
+            }
          
         \end{subparts}
 
