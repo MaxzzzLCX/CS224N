@@ -1,0 +1,12 @@
+name: cs224n-cpu
+channels:
+  - defaults
+  - nvidia
+dependencies:
+  - python=3.10
+  - pip
+  - lxml=5.*         # let conda pick an available 5.x (e.g., 5.2.x)
+  - libxml2>=2.12
+  - libxslt
+  - pip:
+    - -r requirements.txt
