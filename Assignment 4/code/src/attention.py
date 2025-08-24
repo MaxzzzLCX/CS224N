@@ -24,7 +24,7 @@ def precompute_rotary_emb(dim, max_positions):
 
     cos(t theta_i) and sin(t theta_i)
         where t is the position and
-              theta_i = 1/10000^(-2(i-1)/dim) for i in [1, dim/2]
+              theta_i = 10000^(-2(i-1)/dim) for i in [1, dim/2]
 
     Since the maximum length of sequences is known, we can precompute
     these values to speed up training.
@@ -38,13 +38,25 @@ def precompute_rotary_emb(dim, max_positions):
     rope_cache = None
     # TODO: [part g]
     ### YOUR CODE HERE ###
-    pass
+    positions = torch.arange(max_positions, dtype=torch.float32).unsqueeze(1) # shape (T, 1)
+    dims = torch.arange(dim//2, dtype=torch.float32).unsqueeze(0) # shape (1, dim/2)
+    thetas = 10000.0**(-2.0*(dims)/dim) # (1, dim/2)
+    angles = positions * thetas # Dimension broadcasting -> (T, dim2)
+
+    cos = torch.cos(angles)
+    sin = torch.sin(angles)
+    rope_cache = torch.stack((cos, sin), dim=-1)
+    
     ### END YOUR CODE ###
     return rope_cache
 
 
 def apply_rotary_emb(x, rope_cache):
-    """Apply the RoPE to the input tensor x."""
+    """
+    Apply the RoPE to the input tensor x.
+    x is key or query vector as rope is applied to k, q, not word embeddings
+    x has shape (Batch, num_heads, T, dim of each head)
+    """
     # TODO: [part g]
     # You might find the following functions useful to convert
     # between real and complex numbers:
@@ -58,7 +70,29 @@ def apply_rotary_emb(x, rope_cache):
 
     rotated_x = None
     ### YOUR CODE HERE ###
-    pass
+    B, num_head, T, dim_per_head = x.shape
+    # Split x into real and imaginary part, where all odd
+    # original x has shape (B, num_heads, T, dim_per_head)
+    real_x = x[:,:,:,0::2] # all even indexed x's dimensions
+    imaginary_x = x[:,:,:,1::2] # all odd indexed x's dimensions
+    pre_complex_x = torch.stack((real_x, imaginary_x), dim=-1) # (B, num_heads, T, dim_per_head/2, 2)
+
+    # fetch the precomupted sin and cos
+    rope_cache = rope_cache[:T, :, :] # truncate the rope_cache to the length of the input sequence
+    cos = rope_cache[:, :, 0]
+    sin = rope_cache[:, :, 1]
+    cossin = torch.stack((cos, sin), dim=-1).unsqueeze(dim=0).unsqueeze(dim=0) # (T, dim/2, 2) -> (1, 1, T, dim/2, 2)
+
+    # Compute the RoPE as element-wise multiplication
+    x_complex = torch.view_as_complex(pre_complex_x) # (B, num_heads, T, dim_per_head/2, 2) -> (B, num_heads, T, dim_per_head/2)
+    cossin_complex = torch.view_as_complex(cossin) # (1, 1, T, dim/2, 2) -> (1, 1, T, dim/2)
+    rotated_x = x_complex * cossin_complex # will broadcase dimension and perform ELEMENTWISE MULTIPLICATION
+                                           # (B, num_heads, T, dim_per_head/2)
+
+    rotated_x_real = torch.view_as_real(rotated_x) # (B, num_heads, T, dim_per_head/2) -> (B, num_heads, T, dim_per_head/2, 2)
+    rotated_x = rotated_x_real.flatten(-2) # flatten the last two dimensions (B, num_heads, T, dim_per_head/2, 2) -> (B, num_heads, T, dim_per_head/2*2)
+                                                # the dimensions will be flattened in turns, i.e. real0, imag0, real1, imag1, ...
+    
     ### END YOUR CODE ###
     return rotated_x
 
@@ -86,7 +120,11 @@ class CausalSelfAttention(nn.Module):
             # Hint: The maximum sequence length is given by config.block_size.
             rope_cache = None
             ### YOUR CODE HERE ###
-            pass
+            rope_cache = precompute_rotary_emb(
+                dim=config.n_embd//config.n_head, # the embedding dimensions is equally distributed to all heads
+                max_positions=config.block_size
+            ) 
+            
             ### END YOUR CODE ###
 
             self.register_buffer("rope_cache", rope_cache)
@@ -112,7 +150,8 @@ class CausalSelfAttention(nn.Module):
         if self.rope:
             # TODO: [part g] Apply RoPE to the query and key.
             ### YOUR CODE HERE ###
-            pass
+            q = apply_rotary_emb(q, self.rope_cache)
+            k = apply_rotary_emb(k, self.rope_cache)
             ### END YOUR CODE ###
 
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)

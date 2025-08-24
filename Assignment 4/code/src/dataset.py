@@ -101,7 +101,40 @@ class CharCorruptionDataset(Dataset):
     def __getitem__(self, idx):
         # TODO [part e]: see spec above
         ### YOUR CODE HERE ###
-        pass
+
+        # (0)
+        document = self.data[idx]
+        # print(f"Length of document {len(document)}")
+
+        # (1) Randomly truncate the document
+        length = random.randint(4, min(int(self.block_size*7/8), len(document)))
+        start_idx = random.randint(0, max(0, len(document)-length)) # max() is needed to prevent truncation length > document length (which will cause negative range)
+        truncated = document[start_idx:min(start_idx+length, len(document))] # min() is needed to prevent truncation length > document length
+
+        # (2) Randomly segments into prefix, masked_content, and suffix
+        mask_length_mean = max(1, len(truncated)//4)
+        mask_length = mask_length_mean + random.randint(-len(truncated)//8, len(truncated)//8) # Masked length is 1/4 ± 1/8 of truncated length
+        mask_length = max(1, min(len(truncated) - 2, mask_length))  # ensure prefix and suffix are nonempty
+
+        start_idx = random.randint(1, len(truncated) - mask_length - 1)
+        prefix = truncated[:start_idx]
+        masked = truncated[start_idx:start_idx+mask_length]
+        suffix = truncated[start_idx+mask_length:]
+
+        # (3) Rearrange, mask, and pad
+        masked_string = prefix + self.MASK_CHAR + suffix + self.MASK_CHAR + masked
+        pad_length = self.block_size + 1 - len(masked_string)
+        masked_string += pad_length * self.PAD_CHAR
+
+        # (4) Form input and output pair
+        input = masked_string[:-1]
+        output = masked_string[1:]
+
+        # (5) Encode
+        input_idx = torch.tensor([self.stoi[s] for s in input], dtype = torch.long)   
+        output_idx = torch.tensor([self.stoi[s] for s in output], dtype = torch.long)
+
+        return input_idx, output_idx
         ### END YOUR CODE ###
 
 
@@ -125,8 +158,8 @@ class NameDataset(Dataset):
     def __init__(self, pretraining_dataset, data):
         self.MASK_CHAR = "\u2047" # the doublequestionmark character, for mask
         self.PAD_CHAR = "\u25A1" # the empty square character, for pad
-        self.itos = pretraining_dataset.itos
-        self.stoi = pretraining_dataset.stoi
+        self.itos = pretraining_dataset.itos #index to string
+        self.stoi = pretraining_dataset.stoi #string to index
         self.block_size = pretraining_dataset.block_size
         self.data = list(data.encode('utf-8').decode('ascii', errors='ignore').split('\n'))
 
